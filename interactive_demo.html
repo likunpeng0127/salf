@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交互式服装区域检测演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            display: flex;
+            gap: 30px;
+            padding: 30px;
+        }
+        
+        .image-container {
+            flex: 1;
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            background: #f5f5f5;
+        }
+        
+        .image-wrapper {
+            position: relative;
+            width: 100%;
+            padding-bottom: 133%; /* 3:4 比例 */
+        }
+        
+        .image-wrapper img, .image-wrapper canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        #overlay-canvas {
+            pointer-events: none;
+        }
+        
+        .controls {
+            flex: 0 0 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .control-panel {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .control-panel h3 {
+            margin-bottom: 15px;
+            color: #667eea;
+            font-size: 1.3em;
+        }
+        
+        .part-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .part-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .part-item:hover {
+            background: #667eea;
+            color: white;
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .part-item.active {
+            background: #764ba2;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .part-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        
+        .part-info {
+            flex: 1;
+        }
+        
+        .part-name {
+            font-weight: 600;
+            font-size: 1.05em;
+        }
+        
+        .part-stats {
+            font-size: 0.85em;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+        
+        .settings {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .setting-item label {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .color-options {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        
+        .color-option {
+            width: 100%;
+            padding-bottom: 100%;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            position: relative;
+            border: 3px solid transparent;
+        }
+        
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+        
+        .color-option.active {
+            border-color: #333;
+            box-shadow: 0 0 0 2px white, 0 0 0 4px #333;
+        }
+        
+        .stats {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+        }
+        
+        .stats h4 {
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .controls {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 智能服装区域检测</h1>
+            <p>鼠标悬停查看服装部位 · 点击锁定高亮</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="image-container">
+                <div class="image-wrapper">
+                    <img id="original-img" src="" alt="原始图片" />
+                    <canvas id="overlay-canvas"></canvas>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <div class="control-panel">
+                    <h3>📋 服装部位列表</h3>
+                    <div class="part-list" id="part-list">
+                        <!-- 动态生成 -->
+                    </div>
+                </div>
+                
+                <div class="control-panel">
+                    <h3>⚙️ 显示设置</h3>
+                    <div class="settings">
+                        <div class="setting-item">
+                            <label>透明度: <span id="alpha-value">0.6</span></label>
+                            <input type="range" id="alpha-slider" min="0" max="1" step="0.1" value="0.6" />
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label>高亮颜色:</label>
+                            <div class="color-options">
+                                <div class="color-option active" data-color="255,255,0" style="background: #ffff00;"></div>
+                                <div class="color-option" data-color="255,0,0" style="background: #ff0000;"></div>
+                                <div class="color-option" data-color="0,255,0" style="background: #00ff00;"></div>
+                                <div class="color-option" data-color="0,0,255" style="background: #0000ff;"></div>
+                                <div class="color-option" data-color="0,255,255" style="background: #00ffff;"></div>
+                                <div class="color-option" data-color="255,0,255" style="background: #ff00ff;"></div>
+                                <div class="color-option" data-color="255,128,0" style="background: #ff8000;"></div>
+                                <div class="color-option" data-color="128,0,255" style="background: #8000ff;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stats">
+                    <h4>📊 图片统计</h4>
+                    <div class="stat-row">
+                        <span>分辨率:</span>
+                        <span id="stat-resolution">-</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>识别部位:</span>
+                        <span id="stat-parts">-</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>服装部位:</span>
+                        <span id="stat-clothing">-</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>当前高亮:</span>
+                        <span id="stat-current">无</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 模拟数据（实际使用时从服务器加载）
+        const demoData = {
+            image_url: 'path/to/your/image.jpg',  // 替换为实际图片路径
+            parts: [
+                { id: 6, name: 'Dress', color: [0, 200, 200], percentage: 35.2, mask: null },
+                { id: 2, name: 'Hair', color: [0, 255, 0], percentage: 8.5, mask: null },
+                { id: 13, name: 'Face', color: [255, 0, 255], percentage: 3.2, mask: null },
+                { id: 14, name: 'Left-arm', color: [255, 170, 170], percentage: 6.1, mask: null },
+                { id: 15, name: 'Right-arm', color: [255, 170, 170], percentage: 6.3, mask: null },
+                { id: 16, name: 'Left-leg', color: [255, 255, 0], percentage: 8.7, mask: null },
+                { id: 17, name: 'Right-leg', color: [255, 255, 0], percentage: 8.9, mask: null },
+                { id: 18, name: 'Left-shoe', color: [255, 255, 0], percentage: 1.2, mask: null },
+                { id: 19, name: 'Right-shoe', color: [255, 255, 0], percentage: 1.1, mask: null }
+            ]
+        };
+        
+        let currentPart = null;
+        let isLocked = false;
+        let alpha = 0.6;
+        let highlightColor = [255, 255, 0];
+        
+        // 初始化
+        function init() {
+            setupImage();
+            setupControls();
+            renderPartList();
+            updateStats();
+        }
+        
+        function setupImage() {
+            const img = document.getElementById('original-img');
+            const canvas = document.getElementById('overlay-canvas');
+            
+            // 这里应该加载实际的图片
+            // img.src = demoData.image_url;
+            
+            img.onload = function() {
+                canvas.width = img.width;
+                canvas.height = img.height;
+            };
+        }
+        
+        function setupControls() {
+            // 透明度滑块
+            const alphaSlider = document.getElementById('alpha-slider');
+            const alphaValue = document.getElementById('alpha-value');
+            alphaSlider.addEventListener('input', (e) => {
+                alpha = parseFloat(e.target.value);
+                alphaValue.textContent = alpha.toFixed(1);
+                if (currentPart) drawHighlight(currentPart);
+            });
+            
+            // 颜色选择
+            document.querySelectorAll('.color-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    document.querySelectorAll('.color-option').forEach(o => o.classList.remove('active'));
+                    this.classList.add('active');
+                    highlightColor = this.dataset.color.split(',').map(Number);
+                    if (currentPart) drawHighlight(currentPart);
+                });
+            });
+        }
+        
+        function renderPartList() {
+            const partList = document.getElementById('part-list');
+            partList.innerHTML = '';
+            
+            demoData.parts.forEach(part => {
+                const item = document.createElement('div');
+                item.className = 'part-item';
+                item.innerHTML = `
+                    <div class="part-color" style="background: rgb(${part.color.join(',')})"></div>
+                    <div class="part-info">
+                        <div class="part-name">${part.name}</div>
+                        <div class="part-stats">${part.percentage.toFixed(1)}% 覆盖</div>
+                    </div>
+                `;
+                
+                // 鼠标悬停
+                item.addEventListener('mouseenter', () => {
+                    if (!isLocked) {
+                        currentPart = part;
+                        drawHighlight(part);
+                        updateCurrentStat(part.name);
+                    }
+                });
+                
+                // 鼠标离开
+                item.addEventListener('mouseleave', () => {
+                    if (!isLocked) {
+                        currentPart = null;
+                        clearHighlight();
+                        updateCurrentStat('无');
+                    }
+                });
+                
+                // 点击锁定
+                item.addEventListener('click', () => {
+                    if (isLocked && currentPart === part) {
+                        isLocked = false;
+                        item.classList.remove('active');
+                        clearHighlight();
+                        updateCurrentStat('无');
+                    } else {
+                        document.querySelectorAll('.part-item').forEach(i => i.classList.remove('active'));
+                        isLocked = true;
+                        currentPart = part;
+                        item.classList.add('active');
+                        drawHighlight(part);
+                        updateCurrentStat(part.name + ' (已锁定)');
+                    }
+                });
+                
+                partList.appendChild(item);
+            });
+        }
+        
+        function drawHighlight(part) {
+            const canvas = document.getElementById('overlay-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 清空画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 这里应该绘制实际的掩码
+            // 模拟绘制一个区域
+            ctx.fillStyle = `rgba(${highlightColor.join(',')}, ${alpha})`;
+            ctx.fillRect(100, 100, 200, 300);  // 示例矩形
+        }
+        
+        function clearHighlight() {
+            const canvas = document.getElementById('overlay-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function updateStats() {
+            document.getElementById('stat-resolution').textContent = '800x1066';
+            document.getElementById('stat-parts').textContent = demoData.parts.length;
+            document.getElementById('stat-clothing').textContent = 
+                demoData.parts.filter(p => ['Dress', 'Left-shoe', 'Right-shoe'].includes(p.name)).length;
+        }
+        
+        function updateCurrentStat(text) {
+            document.getElementById('stat-current').textContent = text;
+        }
+        
+        // 页面加载后初始化
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
+
